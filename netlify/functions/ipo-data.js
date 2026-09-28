@@ -98,17 +98,27 @@ async function fetchIpojiConsolidated(){
 }
 
 const verifiedSnapshot={
- "Himalayan Solar":{qib:1.58,snii:0.05,bnii:0.63,retail:0.84},
- "Bench Mark Infotech":{qib:0,snii:1.25,bnii:1.52,retail:2.13},
- "Dudani Retail":{qib:null,snii:null,bnii:null,retail:0.49},
- "Sai Urja Indo Ventures":{qib:0,snii:0.14,bnii:0.05,retail:0.43},
- "Pind Hospitality":{qib:1,snii:0,bnii:0,retail:0.02},
- "Shivchem Agro":{qib:0,snii:0.07,bnii:0.17,retail:0.10},
- "Acme Universal Safezone 9":{qib:0,snii:0.81,bnii:0.38,retail:0.16},
- "Shree TNB Polymers":{qib:0.41,snii:0.10,bnii:0.94,retail:0.05},
- "Green Asia Impex":{qib:1.17,snii:0.05,bnii:0.23,retail:0.19},
- "Peshwa Wheat":{qib:177.12,snii:0.75,bnii:0.34,retail:1.72},
- "Roopa Screen":{qib:111.63,snii:407.57,bnii:429.87,retail:529.82},
+ "Shree TNB Polymers":{qib:0,snii:0.11,bnii:0.62,retail:0.05},
+ "Acme Universal Safezone 9":{qib:0,snii:0.81,bnii:0.25,retail:0.16},
+ "Shivchem Agro":{qib:0,snii:0.07,bnii:0.14,retail:0.10},
+ "Pind Hospitality":{qib:0,snii:0,bnii:0,retail:0.01},
+ "Dudani Retail":{qib:null,snii:null,bnii:null,retail:0.28},
+ "Bench Mark Infotech":{qib:0,snii:0.50,bnii:0.10,retail:1.03},
+ "Himalayan Solar":{qib:1.58,snii:0.05,bnii:0.36,retail:0.84},
+ "Sai Urja Indo Ventures":{qib:0,snii:0.14,bnii:0.05,retail:0.16},
+ "Green Asia Impex":{qib:1.17,snii:0.05,bnii:0.18,retail:0.19},
+ "Peshwa Wheat":{qib:177.12,snii:0.75,bnii:0.16,retail:1.72},
+ "Roopa Screen":{qib:44.81,snii:407.57,bnii:429.12,retail:529.82},
+ "S.K.Offset":{qib:2.61,snii:1.03,bnii:0.57,retail:0.78},
+ "Liqvd Digital":{qib:1.00,snii:2.33,bnii:27.11,retail:1.43},
+ "Pooja Logistics":{qib:2.50,snii:4.36,bnii:5.13,retail:2.86},
+ "Coreintegra Consulting":{qib:1.05,snii:2.14,bnii:1.12,retail:1.42},
+ "Unitec Fibres":{qib:5.30,snii:5.73,bnii:4.47,retail:2.73},
+ "Anand Seamless":{qib:null,snii:null,bnii:null,retail:0.98},
+ "Himalaya Nutravedics":{qib:1.00,snii:3.04,bnii:3.84,retail:2.56},
+ "Vivekanand Cotspin":{qib:1.26,snii:1.26,bnii:2.99,retail:1.82},
+ "FX Multitech":{qib:20.95,snii:18.21,bnii:29.94,retail:12.31},
+ "Robokidz Eduventures":{qib:306.73,snii:870.44,bnii:1954.28,retail:807.12},
  "Moneyview":{qib:230.54,snii:86.72,bnii:137.19,retail:20.41}
 };
 async function discoverChittorgarh(){
