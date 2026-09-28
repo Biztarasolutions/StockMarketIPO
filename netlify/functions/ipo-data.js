@@ -1,19 +1,9 @@
-const base=[["Peshwa Wheat","peshwa-wheat"],["Green Asia Impex","green-asia-impex"],["Roopa Screen","roopa-screen"],["Moneyview","moneyview"],["A-One Steels","a-one-steels"],["Coreintegra Consulting","coreintegra-consulting"],["Unitec Fibres","unitec-fibres"],["Pooja Logistics","pooja-logistics"],["Liqvd Digital","liqvd-digital"],["S.K.Offset","s-k-offset"],["Anand Seamless","anand-seamless"],["Himalaya Nutravedics","himalaya-nutravedics"],["Vivekanand Cotspin","vivekanand-cotspin"],["FX Multitech","fx-multitech"],["Robokidz Eduventures","robokidz-eduventures"]];
-
-function clean(s){return s.replace(/<[^>]*>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/\s+/g," ").trim()}
-function getValue(text,label){const re=new RegExp(label+"\\s+([0-9,.]+)x?","i");const m=text.match(re);return m?Number(m[1].replace(/,/g,"")):null}
-async function subscription(name,slug){
- try{
-  const res=await fetch("https://k2mstocks.com/subscription/?company="+encodeURIComponent(slug),{headers:{"user-agent":"Mozilla/5.0"}});
-  if(!res.ok)return {};
-  const text=clean(await res.text());
-  return {
-   qib:getValue(text,"QIB \\(Ex Anchor\\)"),
-   snii:getValue(text,"sNII \\(< ₹10L\\)"),
-   bnii:getValue(text,"bNII \\(> ₹10L\\)"),
-   retail:getValue(text,"Individual Investors")
-  };
- }catch{return {}}
-}
-
-export default async()=>{const results=await Promise.all(base.map(async([name,slug])=>({ipo:name,...await subscription(name,slug)})));return new Response(JSON.stringify({data:results,source:"K2M subscription pages",updatedAt:new Date().toISOString()}),{headers:{"content-type":"application/json","cache-control":"public,max-age=300"}})}
+const issues=[
+["Green Asia Impex","https://ipoindex.in/ipo/green-asia-impex-sme-ipo-live-subscription-status/"],
+["Peshwa Wheat","https://ipoindex.in/ipo/peshwa-wheat-sme-ipo-live-subscription-status/"],
+["Roopa Screen","https://ipoindex.in/ipo/roopa-screen-sme-ipo/"]
+];
+function textOnly(html){return html.replace(/<script[\\s\\S]*?<\\/script>/gi," ").replace(/<style[\\s\\S]*?<\\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/\\s+/g," ").trim()}
+function value(text,label){const m=text.match(new RegExp(label+"\\s+([0-9,.]+)\\s*[x×]","i"));return m?Number(m[1].replace(/,/g,"")):null}
+async function fetchOne(name,url){try{const r=await fetch(url,{headers:{"user-agent":"Mozilla/5.0"}});if(!r.ok)return {ipo:name};const t=textOnly(await r.text());return {ipo:name,qib:value(t,"QIB"),snii:value(t,"S-HNI"),bnii:value(t,"B-HNI"),retail:value(t,"Individual"),source:url}}catch{return {ipo:name}}}
+export default async()=>{const data=await Promise.all(issues.map(([n,u])=>fetchOne(n,u)));return new Response(JSON.stringify({data,updatedAt:new Date().toISOString()}),{headers:{"content-type":"application/json","cache-control":"public,max-age=300"}})}
