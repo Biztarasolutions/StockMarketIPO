@@ -1,0 +1,1 @@
+export default async () => { return new Response(JSON.stringify({data:[],source:'IPO Watch + subscription source adapters',message:'Connect source adapters/server-side fetchers here. Missing source values must remain null, never zero.'}),{headers:{'content-type':'application/json'}}) }
