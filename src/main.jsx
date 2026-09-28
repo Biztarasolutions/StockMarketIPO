@@ -45,7 +45,8 @@ const map=r=>{const end=r[2].split(/[–-]/).pop().trim();return {ipo:r[0],type:
 
 function App(){
  const [rows,setRows]=useState(seed.map(map)),[q,setQ]=useState(''),[sort,setSort]=useState('lastDate'),[today,setToday]=useState(false),[type,setType]=useState('All');
- const todayLabel='28 Sep';\n useEffect(()=>{refresh();const id=setInterval(refresh,60000);return()=>clearInterval(id)},[]);
+ const todayLabel='28 Sep';
+ useEffect(()=>{refresh();const id=setInterval(refresh,60000);return()=>clearInterval(id)},[]);
  const filtered=useMemo(()=>{
    let data=rows.filter(x=>x.ipo.toLowerCase().includes(q.toLowerCase())&&(type==='All'||x.type===type));
    if(today)data=data.filter(x=>x.lastDate===todayLabel);
@@ -60,6 +61,7 @@ function App(){
  <section className="chart panel"><h2>Gain % by IPO</h2><ResponsiveContainer width="100%" height={340}><BarChart data={filtered}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="ipo" hide/><YAxis/><Tooltip formatter={(v)=>[v+'%','Gain %']}/><Bar dataKey="gain"/></BarChart></ResponsiveContainer></section>
  <footer>GMP is unofficial and may change frequently. Subscription figures are live/intraday. Information is for informational purposes only and is not investment advice.</footer></div>
 }
-function norm(s){return String(s).toLowerCase().replace(/ipo|limited|ltd|india|services|power|industries|private|pvt/g,'').replace(/[^a-z0-9]/g,'')}\nfunction dateValue(v){const m=String(v).match(/(\d{1,2})\s*([A-Za-z]+)/);if(!m)return 0;const months={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};return (months[m[2]]||0)*100+Number(m[1])}
+function norm(s){return String(s).toLowerCase().replace(/ipo|limited|ltd|india|services|power|industries|private|pvt/g,'').replace(/[^a-z0-9]/g,'')}
+function dateValue(v){const m=String(v).match(/(\d{1,2})\s*([A-Za-z]+)/);if(!m)return 0;const months={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};return (months[m[2]]||0)*100+Number(m[1])}
 function Card(p){return <div className="card"><span>{p.t}</span><strong>{p.v}</strong></div>}
 createRoot(document.getElementById('root')).render(<App/>);
