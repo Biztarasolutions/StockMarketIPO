@@ -1,6 +1,3 @@
-const chittorgarh={
- "Roopa Screen":"https://www.chittorgarh.com/ipo_subscription/roopa-screen-ipo/2651/",
-};
 const ipoji={
  "Moneyview":"https://www.ipoji.com/ipo-subscription/moneyview-ipo",
  "Roopa Screen":"https://www.ipoji.com/ipo-subscription/roopa-screen-ipo",
@@ -13,6 +10,8 @@ function clean(s){
   .replace(/<style[\s\S]*?<\/style>/gi," ")
   .replace(/<[^>]*>/g," ")
   .replace(/&nbsp;/g," ")
+  .replace(/&gt;/g,">")
+  .replace(/&lt;/g,"<")
   .replace(/&amp;/g,"&")
   .replace(/&#39;/g,"'")
   .replace(/&quot;/g,'"')
@@ -25,12 +24,12 @@ function num(s){
 }
 function norm(s){
  return clean(s).toLowerCase()
-  .replace(/ipo|limited|ltd|india|services|power|industries|private|pvt|reviewreport/g,"")
+  .replace(/ipo|limited|ltd|india|services|power|industries|private|pvt|review\s*report/g,"")
   .replace(/[^a-z0-9]/g,"");
 }
 function parseCategoryRows(html,company){
- const rows=[...html.matchAll(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi)]
-  .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\\s\\S]*?)<\\/t[dh]>/gi)].map(x=>clean(x[1])));
+ const rows=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
+  .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
  const out={ipo:company};
  // Chittorgarh uses labels such as "NII (> ₹10L)", "NII (< ₹10L)"
  // and "Individual Investors". Read the actual label before stripping symbols.
@@ -41,7 +40,7 @@ function parseCategoryRows(html,company){
   if(label.includes("qib") && out.qib==null) out.qib=num(last);
   else if(label.includes("nii") && raw.includes(">") && out.bnii==null) out.bnii=num(last);
   else if(label.includes("nii") && raw.includes("<") && out.snii==null) out.snii=num(last);
-  else if((label==="retail"||label.includes("individualinvestor")||label.includes("rii")) && out.retail==null) out.retail=num(last);
+  else if((label==="retail"||label==="individual"||label.includes("individualinvestor")||label.includes("rii")) && out.retail==null) out.retail=num(last);
   else if(label.includes("employee") && out.employee==null) out.employee=num(last);
  }
  return out;
@@ -50,9 +49,15 @@ function parseConsolidatedRows(html,source){
  const trs=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)];
  const rows=trs.map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
  if(!rows.length)return [];
- const header=rows.find(r=>r.some(x=>/company|qib|snii|shni|bnii|bhni|retail|rii/i.test(x)))||[];
+ const header=rows.find(r=>
+  r.some(x=>/company|ipo\s*name/i.test(x))&&
+  r.some(x=>/qib/i.test(x))&&
+  r.some(x=>/snii|shni/i.test(x))&&
+  r.some(x=>/bnii|bhni/i.test(x))&&
+  r.some(x=>/retail|rii|individual/i.test(x))
+ )||[];
  const idx=patterns=>header.findIndex(x=>patterns.some(p=>p.test(String(x))));
- const ci=idx([/company/i]), qi=idx([/qib/i]), si=idx([/snii/i,/shni/i]), bi=idx([/bnii/i,/bhni/i]), ri=idx([/retail/i,/rii/i]), ei=idx([/employee/i]);
+ const ci=idx([/company/i,/ipo\s*name/i]), qi=idx([/qib/i]), si=idx([/snii/i,/shni/i]), bi=idx([/bnii/i,/bhni/i]), ri=idx([/retail/i,/rii/i,/individual/i]), ei=idx([/employee/i]);
  return rows.filter(r=>r!==header&&ci>=0&&r.length>Math.max(ci,qi,si,bi,ri)).map(r=>({ipo:r[ci],qib:num(r[qi]),snii:num(r[si]),bnii:num(r[bi]),retail:num(r[ri]),employee:ei>=0?num(r[ei]):null,source})).filter(x=>x.ipo&&!/company name/i.test(x.ipo));
 }
 async function fetchPage(url){
@@ -69,12 +74,6 @@ async function fetchPage(url){
  });
  if(!r.ok)throw new Error("HTTP "+r.status);
  return await r.text();
-}
-async function fetchChittorgarh(company,url){
- const html=await fetchPage(url);
- const parsed=parseCategoryRows(html,company);
- if(parsed.qib!=null||parsed.snii!=null||parsed.bnii!=null||parsed.retail!=null)return {...parsed,source:"Chittorgarh"};
- throw new Error("Chittorgarh categories not found");
 }
 async function fetchIpoji(company,url){
  const html=await fetchPage(url);
@@ -141,11 +140,6 @@ export default async()=>{
   });
  };
 
- // Try exact Chittorgarh pages first where configured.
- for(const name of Object.keys(chittorgarh)){
-  try{add(await fetchChittorgarh(name,chittorgarh[name]));}catch(e){}
- }
-
  // Exact IPO Ji pages are useful for issues that need a precise category split.
  for(const name of Object.keys(ipoji)){
   try{add(await fetchIpoji(name,ipoji[name]));}catch(e){}
@@ -185,7 +179,7 @@ export default async()=>{
  return new Response(JSON.stringify({
   data:[...dataByName.values()],
   updatedAt:new Date().toISOString(),
-  source:"Chittorgarh + IPO Ji + IPO Platform BSE/NSE live data"
+  source:"IPO Ji + IPO Platform BSE/NSE live data"
  }),{
   headers:{
    "content-type":"application/json",
