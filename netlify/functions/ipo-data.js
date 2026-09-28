@@ -1,6 +1,5 @@
 const chittorgarh={
  "Roopa Screen":"https://www.chittorgarh.com/ipo_subscription/roopa-screen-ipo/2651/",
- "Moneyview":"https://www.chittorgarh.com/ipo_subscription/moneyview-ipo/2647/"
 };
 const ipoji={
  "Moneyview":"https://www.ipoji.com/ipo-subscription/moneyview-ipo",
@@ -43,7 +42,7 @@ async function fetchIpoji(company,url){
 async function fetchConsolidated(){
  const html=await fetchPage("https://www.ipoji.com/ipo-subscription-status-live-bidding-data-bse-nse");
  const rows=[...html.matchAll(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi)].map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\\s\\S]*?)<\\/t[dh]>/gi)].map(x=>clean(x[1])));
- return rows.filter(r=>r.length>=5).map(r=>({ipo:r[0],qib:num(r[3]),snii:num(r[4]),bnii:null,retail:num(r[5]),source:"IPO Ji BSE/NSE"}));
+ return rows.filter(r=>r.length>=13).map(r=>({ipo:r[0],qib:num(r[8]),snii:num(r[9]),bnii:num(r[10]),retail:num(r[12]),employee:num(r[13]),source:"IPO Ji BSE/NSE"}));
 }
 export default async()=>{const names=[...new Set([...Object.keys(chittorgarh),...Object.keys(ipoji)])];const data=[];
  for(const name of names){let x=null;try{x=await fetchChittorgarh(name,chittorgarh[name])}catch(e){} if(!x&&ipoji[name])try{x=await fetchIpoji(name,ipoji[name])}catch(e){} if(x)data.push(x)}
