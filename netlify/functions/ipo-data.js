@@ -59,10 +59,15 @@ function parseConsolidatedRows(html,source){
   .filter(x=>x.ipo);
 }
 async function fetchPage(url){
- const r=await fetch(url,{
+ const separator=url.includes("?")?"&":"?";
+ const freshUrl=url+separator+"_ts="+Date.now();
+ const r=await fetch(freshUrl,{
+  cache:"no-store",
   headers:{
    "user-agent":"Mozilla/5.0 (compatible; StockInvestmentPlan/1.0)",
-   "accept":"text/html,application/xhtml+xml"
+   "accept":"text/html,application/xhtml+xml",
+   "cache-control":"no-cache, no-store, max-age=0",
+   "pragma":"no-cache"
   }
  });
  if(!r.ok)throw new Error("HTTP "+r.status);
