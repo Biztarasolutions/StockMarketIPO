@@ -8,8 +8,8 @@ const ipoji={
 
 function clean(s){
  return String(s||"")
-  .replace(/<script[\s\S]*?<\\/script>/gi," ")
-  .replace(/<style[\s\S]*?<\\/style>/gi," ")
+  .replace(/<script[\s\S]*?<\/script>/gi," ")
+  .replace(/<style[\s\S]*?<\/style>/gi," ")
   .replace(/<[^>]*>/g," ")
   .replace(/&nbsp;/g," ")
   .replace(/&amp;/g,"&")
@@ -19,7 +19,7 @@ function clean(s){
   .trim();
 }
 function num(s){
- const m=String(s||"").replace(/,/g,"").match(/-?\\d+(?:\\.\\d+)?/);
+ const m=String(s||"").replace(/,/g,"").match(/-?\d+(?:\.\d+)?/);
  return m?Number(m[0]):null;
 }
 function norm(s){
@@ -28,8 +28,8 @@ function norm(s){
   .replace(/[^a-z0-9]/g,"");
 }
 function parseCategoryRows(html,company){
- const rows=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\\/tr>/gi)]
-  .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\\/t[dh]>/gi)].map(x=>clean(x[1])));
+ const rows=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
+  .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
  const out={ipo:company};
  for(const r of rows){
   const label=(r[0]||"").toLowerCase().replace(/[^a-z]/g,"");
@@ -43,8 +43,8 @@ function parseCategoryRows(html,company){
  return out;
 }
 function parseConsolidatedRows(html,source){
- const rows=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\\/tr>/gi)]
-  .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\\/t[dh]>/gi)].map(x=>clean(x[1])));
+ const rows=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
+  .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
  return rows
   .filter(r=>r.length>=13 && r[0] && !/company name/i.test(r[0]))
   .map(r=>({
@@ -95,7 +95,7 @@ async function fetchIpojiConsolidated(){
 }
 async function discoverChittorgarh(){
  const html=await fetchPage("https://www.chittorgarh.com/report/ipo-subscription-status-live-bidding-data-bse-nse/21/");
- const links=[...html.matchAll(/href=["'](\\/ipo_subscription\\/[^"']+)["']/gi)]
+ const links=[...html.matchAll(/href=["'](\/ipo_subscription\/[^"']+)["']/gi)]
   .map(m=>"https://www.chittorgarh.com"+m[1]);
  return [...new Set(links)];
 }
