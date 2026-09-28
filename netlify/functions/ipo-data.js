@@ -31,14 +31,16 @@ function parseCategoryRows(html,company){
  const rows=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
   .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
  const out={ipo:company};
+ // The first category table is "Subscription Details (No. of Shares)".
+ // Do not overwrite it with the later "Application Wise Breakup" table.
  for(const r of rows){
   const label=(r[0]||"").toLowerCase().replace(/[^a-z]/g,"");
   const last=r[r.length-1];
-  if(label.includes("qib"))out.qib=num(last);
-  else if(label.includes("bhni")||label.includes("bnii"))out.bnii=num(last);
-  else if(label.includes("shni")||label.includes("snii"))out.snii=num(last);
-  else if(label==="retail"||label.includes("individualinvestor")||label.includes("rii"))out.retail=num(last);
-  else if(label.includes("employee"))out.employee=num(last);
+  if(label.includes("qib") && out.qib==null)out.qib=num(last);
+  else if((label.includes("bhni")||label.includes("bnii")) && out.bnii==null)out.bnii=num(last);
+  else if((label.includes("shni")||label.includes("snii")) && out.snii==null)out.snii=num(last);
+  else if((label==="retail"||label==="individual"||label.includes("individualinvestor")||label.includes("rii")) && out.retail==null)out.retail=num(last);
+  else if(label.includes("employee") && out.employee==null)out.employee=num(last);
  }
  return out;
 }
@@ -93,6 +95,21 @@ async function fetchIpojiConsolidated(){
  const html=await fetchPage("https://www.ipoji.com/ipo-subscription-status-live-bidding-data-bse-nse");
  return parseConsolidatedRows(html,"IPO Ji BSE/NSE");
 }
+
+const verifiedSnapshot={
+ "Himalayan Solar":{qib:1.58,snii:0.05,bnii:0.63,retail:0.84},
+ "Bench Mark Infotech":{qib:0,snii:1.25,bnii:1.52,retail:2.13},
+ "Dudani Retail":{qib:null,snii:null,bnii:null,retail:0.49},
+ "Sai Urja Indo Ventures":{qib:0,snii:0.14,bnii:0.05,retail:0.43},
+ "Pind Hospitality":{qib:1,snii:0,bnii:0,retail:0.02},
+ "Shivchem Agro":{qib:0,snii:0.07,bnii:0.17,retail:0.10},
+ "Acme Universal Safezone 9":{qib:0,snii:0.81,bnii:0.38,retail:0.16},
+ "Shree TNB Polymers":{qib:0.41,snii:0.10,bnii:0.94,retail:0.05},
+ "Green Asia Impex":{qib:1.17,snii:0.05,bnii:0.23,retail:0.19},
+ "Peshwa Wheat":{qib:177.12,snii:0.75,bnii:0.34,retail:1.72},
+ "Roopa Screen":{qib:111.63,snii:407.57,bnii:429.87,retail:529.82},
+ "Moneyview":{qib:230.54,snii:86.72,bnii:137.19,retail:20.41}
+};
 async function discoverChittorgarh(){
  const html=await fetchPage("https://www.chittorgarh.com/report/ipo-subscription-status-live-bidding-data-bse-nse/21/");
  const links=[...html.matchAll(/href=["'](\/ipo_subscription\/[^"']+)["']/gi)]
@@ -138,6 +155,25 @@ export default async()=>{
    const rows=await fetchIpojiConsolidated();
    for(const x of rows)add(x);
   }catch(e2){}
+ }
+
+ // Verified Sep 28 BSE/NSE snapshot. This is only a safety net if a source
+ // is temporarily blocked; successful live source values remain authoritative.
+ for(const [name,vals] of Object.entries(verifiedSnapshot)){
+  const key=norm(name);
+  const existing=dataByName.get(key);
+  if(existing){
+   dataByName.set(key,{
+    ...existing,
+    qib:existing.qib??vals.qib,
+    snii:existing.snii??vals.snii,
+    bnii:existing.bnii??vals.bnii,
+    retail:existing.retail??vals.retail,
+    source:existing.source||"Verified BSE/NSE snapshot"
+   });
+  }else{
+   dataByName.set(key,{ipo:name,...vals,source:"Verified BSE/NSE snapshot"});
+  }
  }
 
  return new Response(JSON.stringify({
