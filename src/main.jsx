@@ -45,7 +45,7 @@ const map=r=>{const end=r[2].split(/[–-]/).pop().trim();return {ipo:r[0],type:
 
 function App(){
  const [rows,setRows]=useState(seed.map(map)),[q,setQ]=useState(''),[sort,setSort]=useState('lastDate'),[today,setToday]=useState(false),[type,setType]=useState('All'),[liveUpdatedAt,setLiveUpdatedAt]=useState(null);
- const todayLabel='28 Sep';
+ const todayLabel=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short'}).replace(/^0/,'');
  useEffect(()=>{refresh();const id=setInterval(refresh,60000);return()=>clearInterval(id)},[]);
  const filtered=useMemo(()=>{
    let data=rows.filter(x=>x.ipo.toLowerCase().includes(q.toLowerCase())&&(type==='All'||x.type===type));
