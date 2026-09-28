@@ -113,7 +113,8 @@ const verifiedSnapshot={
  "Vivekanand Cotspin":{qib:1.26,snii:1.26,bnii:2.99,retail:1.82},
  "FX Multitech":{qib:20.95,snii:18.21,bnii:29.94,retail:12.31},
  "Robokidz Eduventures":{qib:306.73,snii:870.44,bnii:1954.28,retail:807.12},
- "Moneyview":{qib:230.54,snii:86.72,bnii:137.19,retail:20.41}
+ "Moneyview":{qib:230.54,snii:86.72,bnii:137.19,retail:20.41},
+ "Shah Investor's Home":{qib:0.50,snii:0.53,bnii:0.12,retail:0.24}
 };
 async function discoverChittorgarh(){
  const html=await fetchPage("https://www.chittorgarh.com/report/ipo-subscription-status-live-bidding-data-bse-nse/21/");
