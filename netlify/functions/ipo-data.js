@@ -28,19 +28,20 @@ function norm(s){
   .replace(/[^a-z0-9]/g,"");
 }
 function parseCategoryRows(html,company){
- const rows=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
-  .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
+ const rows=[...html.matchAll(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi)]
+  .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\\s\\S]*?)<\\/t[dh]>/gi)].map(x=>clean(x[1])));
  const out={ipo:company};
- // The first category table is "Subscription Details (No. of Shares)".
- // Do not overwrite it with the later "Application Wise Breakup" table.
+ // Chittorgarh uses labels such as "NII (> ₹10L)", "NII (< ₹10L)"
+ // and "Individual Investors". Read the actual label before stripping symbols.
  for(const r of rows){
-  const label=(r[0]||"").toLowerCase().replace(/[^a-z]/g,"");
+  const raw=String(r[0]||"").toLowerCase().replace(/&gt;/g,">").replace(/&lt;/g,"<");
+  const label=raw.replace(/[^a-z]/g,"");
   const last=r[r.length-1];
-  if(label.includes("qib") && out.qib==null)out.qib=num(last);
-  else if((label.includes("bhni")||label.includes("bnii")) && out.bnii==null)out.bnii=num(last);
-  else if((label.includes("shni")||label.includes("snii")) && out.snii==null)out.snii=num(last);
-  else if((label==="retail"||label==="individual"||label.includes("individualinvestor")||label.includes("rii")) && out.retail==null)out.retail=num(last);
-  else if(label.includes("employee") && out.employee==null)out.employee=num(last);
+  if(label.includes("qib") && out.qib==null) out.qib=num(last);
+  else if(label.includes("nii") && raw.includes(">") && out.bnii==null) out.bnii=num(last);
+  else if(label.includes("nii") && raw.includes("<") && out.snii==null) out.snii=num(last);
+  else if((label==="retail"||label.includes("individualinvestor")||label.includes("rii")) && out.retail==null) out.retail=num(last);
+  else if(label.includes("employee") && out.employee==null) out.employee=num(last);
  }
  return out;
 }
