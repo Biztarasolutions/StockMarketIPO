@@ -51,7 +51,7 @@ function App(){
    if(today)data=data.filter(x=>x.lastDate===todayLabel);
    return [...data].sort((a,b)=>sort==='lastDate'?dateValue(b.lastDate)-dateValue(a.lastDate):sort==='gmp'?b.gmp-a.gmp:sort==='gain'?b.gain-a.gain:a.ipo.localeCompare(b.ipo));
  },[rows,q,sort,today,type]);
- const refresh=async()=>{try{const r=await fetch('/.netlify/functions/ipo-data');if(r.ok){const d=await r.json();if(Array.isArray(d.data)&&d.data.length)setRows(d.data.map(x=>({...x,lastDate:x.lastDate||x.date?.split(/[–-]/).pop()?.trim()})))}}catch(e){}};
+ const refresh=async()=>{try{const r=await fetch('/.netlify/functions/ipo-data');if(r.ok){const d=await r.json();if(Array.isArray(d.data)&&d.data.length)setRows(prev=>prev.map(row=>{const live=d.data.find(x=>x.ipo.toLowerCase().replace(/[^a-z0-9]/g,'')===row.ipo.toLowerCase().replace(/[^a-z0-9]/g,''));return live?{...row,qib:live.qib??row.qib,snii:live.snii??row.snii,bnii:live.bnii??row.bnii,retail:live.retail??row.retail}:row}))}}catch(e){}};
  const maxG=Math.max(...rows.map(x=>Number(x.gmp)||0));
  return <div className="app"><header><div><div className="brand">Stock Investment Plan</div><div className="sub">Track IPOs. Compare GMP. Understand Subscription. Measure Listing Performance.</div></div><button onClick={refresh}>↻ Refresh Data</button></header>
  <section className="cards"><Card t="Total IPOs" v={rows.length}/><Card t="Mainboard" v={rows.filter(x=>x.type==='Mainboard').length}/><Card t="SME" v={rows.filter(x=>x.type==='SME').length}/><Card t="Highest Expected Gain" v={Math.max(...rows.map(x=>Number(x.gain)||0)).toFixed(2)+'%'}/></section>
