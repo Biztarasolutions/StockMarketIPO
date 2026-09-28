@@ -39,7 +39,7 @@ async function fetchIpoji(company,url){
  if(parsed.qib!=null||parsed.snii!=null||parsed.bnii!=null||parsed.retail!=null)return {...parsed,source:"IPO Ji"};
  throw new Error("IPO Ji categories not found");
 }
-async function fetchConsolidated(){
+async function discoverChittorgarh(){const html=await fetchPage("https://www.chittorgarh.com/report/ipo-subscription-status-live-bidding-data-bse-nse/21/");const links=[...html.matchAll(/href=["\'](\\/ipo_subscription\\/[^"\']+)["\']/gi)].map(m=>"https://www.chittorgarh.com"+m[1]);return [...new Set(links)];}\nasync function fetchConsolidated(){
  const html=await fetchPage("https://www.ipoji.com/ipo-subscription-status-live-bidding-data-bse-nse");
  const rows=[...html.matchAll(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi)].map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\\s\\S]*?)<\\/t[dh]>/gi)].map(x=>clean(x[1])));
  return rows.filter(r=>r.length>=13).map(r=>({ipo:r[0],qib:num(r[8]),snii:num(r[9]),bnii:num(r[10]),retail:num(r[12]),employee:num(r[13]),source:"IPO Ji BSE/NSE"}));
