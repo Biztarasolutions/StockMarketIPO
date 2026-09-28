@@ -45,13 +45,13 @@ const map=r=>{const end=r[2].split(/[–-]/).pop().trim();return {ipo:r[0],type:
 
 function App(){
  const [rows,setRows]=useState(seed.map(map)),[q,setQ]=useState(''),[sort,setSort]=useState('lastDate'),[today,setToday]=useState(false),[type,setType]=useState('All');
- const todayLabel='28 Sep';
+ const todayLabel='28 Sep';\n useEffect(()=>{refresh();const id=setInterval(refresh,60000);return()=>clearInterval(id)},[]);
  const filtered=useMemo(()=>{
    let data=rows.filter(x=>x.ipo.toLowerCase().includes(q.toLowerCase())&&(type==='All'||x.type===type));
    if(today)data=data.filter(x=>x.lastDate===todayLabel);
    return [...data].sort((a,b)=>sort==='lastDate'?dateValue(b.lastDate)-dateValue(a.lastDate):sort==='gmp'?b.gmp-a.gmp:sort==='gain'?b.gain-a.gain:a.ipo.localeCompare(b.ipo));
  },[rows,q,sort,today,type]);
- const refresh=async()=>{try{const r=await fetch('/.netlify/functions/ipo-data');if(r.ok){const d=await r.json();if(Array.isArray(d.data)&&d.data.length)setRows(prev=>prev.map(row=>{const live=d.data.find(x=>x.ipo.toLowerCase().replace(/[^a-z0-9]/g,'')===row.ipo.toLowerCase().replace(/[^a-z0-9]/g,''));return live?{...row,qib:live.qib??row.qib,snii:live.snii??row.snii,bnii:live.bnii??row.bnii,retail:live.retail??row.retail}:row}))}}catch(e){}};
+ const refresh=async()=>{try{const r=await fetch('/.netlify/functions/ipo-data?ts='+Date.now(),{cache:'no-store'});if(r.ok){const d=await r.json();if(Array.isArray(d.data)&&d.data.length)setRows(prev=>prev.map(row=>{const key=norm(row.ipo);const live=d.data.find(x=>{const lk=norm(x.ipo);return lk===key||lk.includes(key)||key.includes(lk)});return live?{...row,qib:live.qib??row.qib,snii:live.snii??row.snii,bnii:live.bnii??row.bnii,retail:live.retail??row.retail,employee:live.employee??row.employee}:row}))}}catch(e){}};
  const maxG=Math.max(...rows.map(x=>Number(x.gmp)||0));
  return <div className="app"><header><div><div className="brand">Stock Investment Plan</div><div className="sub">Track IPOs. Compare GMP. Understand Subscription. Measure Listing Performance.</div></div><button onClick={refresh}>↻ Refresh Data</button></header>
  <section className="cards"><Card t="Total IPOs" v={rows.length}/><Card t="Mainboard" v={rows.filter(x=>x.type==='Mainboard').length}/><Card t="SME" v={rows.filter(x=>x.type==='SME').length}/><Card t="Highest Expected Gain" v={Math.max(...rows.map(x=>Number(x.gain)||0)).toFixed(2)+'%'}/></section>
@@ -60,6 +60,6 @@ function App(){
  <section className="chart panel"><h2>Gain % by IPO</h2><ResponsiveContainer width="100%" height={340}><BarChart data={filtered}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="ipo" hide/><YAxis/><Tooltip formatter={(v)=>[v+'%','Gain %']}/><Bar dataKey="gain"/></BarChart></ResponsiveContainer></section>
  <footer>GMP is unofficial and may change frequently. Subscription figures are live/intraday. Information is for informational purposes only and is not investment advice.</footer></div>
 }
-function dateValue(v){const m=String(v).match(/(\d{1,2})\s*([A-Za-z]+)/);if(!m)return 0;const months={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};return (months[m[2]]||0)*100+Number(m[1])}
+function norm(s){return String(s).toLowerCase().replace(/ipo|limited|ltd|india|services|power|industries|private|pvt/g,'').replace(/[^a-z0-9]/g,'')}\nfunction dateValue(v){const m=String(v).match(/(\d{1,2})\s*([A-Za-z]+)/);if(!m)return 0;const months={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};return (months[m[2]]||0)*100+Number(m[1])}
 function Card(p){return <div className="card"><span>{p.t}</span><strong>{p.v}</strong></div>}
 createRoot(document.getElementById('root')).render(<App/>);
