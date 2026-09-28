@@ -3,7 +3,8 @@ const chittorgarh={
 };
 const ipoji={
  "Moneyview":"https://www.ipoji.com/ipo-subscription/moneyview-ipo",
- "Roopa Screen":"https://www.ipoji.com/ipo-subscription/roopa-screen-ipo"
+ "Roopa Screen":"https://www.ipoji.com/ipo-subscription/roopa-screen-ipo",
+ "Shah Investor's Home":"https://www.ipoji.com/ipo-subscription/shah-investors-home-ipo"
 };
 
 function clean(s){
@@ -46,20 +47,13 @@ function parseCategoryRows(html,company){
  return out;
 }
 function parseConsolidatedRows(html,source){
- const rows=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
-  .map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
- return rows
-  .filter(r=>r.length>=13 && r[0] && !/company name/i.test(r[0]))
-  .map(r=>({
-   ipo:r[0],
-   qib:num(r[8]),
-   snii:num(r[9]),
-   bnii:num(r[10]),
-   retail:num(r[12]),
-   employee:num(r[13]),
-   source
-  }))
-  .filter(x=>x.ipo);
+ const trs=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)];
+ const rows=trs.map(m=>[...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
+ if(!rows.length)return [];
+ const header=rows.find(r=>r.some(x=>/company|qib|snii|shni|bnii|bhni|retail|rii/i.test(x)))||[];
+ const idx=patterns=>header.findIndex(x=>patterns.some(p=>p.test(String(x))));
+ const ci=idx([/company/i]), qi=idx([/qib/i]), si=idx([/snii/i,/shni/i]), bi=idx([/bnii/i,/bhni/i]), ri=idx([/retail/i,/rii/i]), ei=idx([/employee/i]);
+ return rows.filter(r=>r!==header&&ci>=0&&r.length>Math.max(ci,qi,si,bi,ri)).map(r=>({ipo:r[ci],qib:num(r[qi]),snii:num(r[si]),bnii:num(r[bi]),retail:num(r[ri]),employee:ei>=0?num(r[ei]):null,source})).filter(x=>x.ipo&&!/company name/i.test(x.ipo));
 }
 async function fetchPage(url){
  const separator=url.includes("?")?"&":"?";
