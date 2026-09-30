@@ -41,8 +41,8 @@ function parseCategoryRows(html,company){
   if(label.includes("qib") && out.qib==null) out.qib=num(last);
   else if(label.includes("nii") && raw.includes(">") && out.bnii==null) out.bnii=num(last);
   else if(label.includes("nii") && raw.includes("<") && out.snii==null) out.snii=num(last);
-  else if((label==="retail"||label==="individual"||label.includes("individualinvestor")||label.includes("rii")) && out.retail==null) out.retail=num(last);
   else if(label.includes("employee") && out.employee==null) out.employee=num(last);
+  else if((label==="retail"||label==="individual"||label.includes("individualinvestor")||label.includes("rii"))&&out.retail==null)out.retail=num(last);
  }
  return out;
 }
@@ -59,7 +59,10 @@ function parseConsolidatedRows(html,source){
  )||[];
  const idx=patterns=>header.findIndex(x=>patterns.some(p=>p.test(String(x))));
  const ci=idx([/company/i,/ipo\s*name/i]), qi=idx([/qib/i]), si=idx([/snii/i,/shni/i]), bi=idx([/bnii/i,/bhni/i]), ri=idx([/retail/i,/rii/i,/individual/i]), ei=idx([/employee/i]);
- return rows.filter(r=>r!==header&&ci>=0&&r.length>Math.max(ci,qi,si,bi,ri)).map(r=>({ipo:r[ci],qib:num(r[qi]),snii:num(r[si]),bnii:num(r[bi]),retail:num(r[ri]),employee:ei>=0?num(r[ei]):null,source})).filter(x=>x.ipo&&!/company name/i.test(x.ipo));
+ return rows.map((cells,index)=>({cells,index})).filter(({cells})=>cells!==header&&ci>=0&&cells.length>Math.max(ci,qi,si,bi,ri)).map(({cells,index})=>{
+  const href=source==="IPO Platform BSE/NSE"?trs[index][1].match(/<a\b[^>]*href=["']([^"']+)["']/i)?.[1]:null;
+  return {ipo:cells[ci],qib:num(cells[qi]),snii:num(cells[si]),bnii:num(cells[bi]),retail:num(cells[ri]),employee:ei>=0?num(cells[ei]):null,detailUrl:href?new URL(href,"https://www.ipoplatform.com").href:null,source};
+ }).filter(x=>x.ipo&&!/company name/i.test(x.ipo));
 }
 function cellsFromTable(table){
  return [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(m=>[...m[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
@@ -169,10 +172,10 @@ function parseIpoWatchGmp(html){
  }
  return [...latestByName.values()];
 }
-async function fetchPage(url){
+async function fetchPage(url,timeoutMs=0){
  const separator=url.includes("?")?"&":"?";
  const freshUrl=url+separator+"_ts="+Date.now();
- const r=await fetch(freshUrl,{
+ const options={
   cache:"no-store",
   headers:{
    "user-agent":"Mozilla/5.0 (compatible; StockInvestmentPlan/1.0)",
@@ -180,7 +183,9 @@ async function fetchPage(url){
    "cache-control":"no-cache, no-store, max-age=0",
    "pragma":"no-cache"
   }
- });
+ };
+ if(timeoutMs)options.signal=AbortSignal.timeout(timeoutMs);
+ const r=await fetch(freshUrl,options);
  if(!r.ok)throw new Error("HTTP "+r.status);
  return await r.text();
 }
@@ -210,7 +215,6 @@ async function fetchIpoWatchGmp(){
  if(!rows.length)throw new Error("IPO Watch GMP table not found");
  return rows;
 }
-
 const verifiedSnapshot={
  "Shree TNB Polymers":{qib:0,snii:0.11,bnii:0.62,retail:0.05},
  "Acme Universal Safezone 9":{qib:0,snii:0.81,bnii:0.25,retail:0.16},
@@ -251,7 +255,6 @@ export default async()=>{
   const existing=dataByName.get(key);
   if(!existing)dataByName.set(key,x);
   else if(x.gmpSource==="IPO Watch GMP")dataByName.set(key,{...existing,gmp:x.gmp,price:x.price??existing.price,listing:x.listing??existing.listing,gain:x.gain??existing.gain,gmpDate:x.gmpDate,gmpStatus:x.gmpStatus,gmpSource:x.gmpSource});
-  else if(existing.source==="IPO Watch")return;
   else dataByName.set(key,{
    ...existing,
    qib:existing.qib??x.qib,
@@ -262,6 +265,7 @@ export default async()=>{
    employee:existing.employee??x.employee,
    other:existing.other??x.other,
    total:existing.total??x.total,
+  detailUrl:existing.detailUrl??x.detailUrl,
    source:existing.source||x.source
   });
  };
