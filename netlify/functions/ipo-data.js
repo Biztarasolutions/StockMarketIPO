@@ -9,18 +9,19 @@ function clean(s){
   .replace(/<script[\s\S]*?<\/script>/gi," ")
   .replace(/<style[\s\S]*?<\/style>/gi," ")
   .replace(/<[^>]*>/g," ")
-  .replace(/&nbsp;/g," ")
-  .replace(/&gt;/g,">")
-  .replace(/&lt;/g,"<")
-  .replace(/&amp;/g,"&")
-  .replace(/&#39;/g,"'")
-  .replace(/&quot;/g,'"')
+  .replace(/&nbsp;|&#160;/gi," ")
+  .replace(/&gt;/gi,">")
+  .replace(/&lt;/gi,"<")
+  .replace(/&amp;/gi,"&")
+  .replace(/&#39;|&apos;/gi,"'")
+  .replace(/&quot;/gi,'"')
   .replace(/\s+/g," ")
   .trim();
 }
 function num(s){
- const m=String(s||"").replace(/,/g,"").match(/-?\d+(?:\.\d+)?/);
- return m?Number(m[0]):null;
+ const value=String(s||"").replace(/,/g,"").trim();
+ const m=value.match(/\d+(?:\.\d+)?/);
+ return m?Number(m[0])*(/^[-−]/.test(value)?-1:1):null;
 }
 function norm(s){
  return clean(s).toLowerCase()
@@ -60,6 +61,114 @@ function parseConsolidatedRows(html,source){
  const ci=idx([/company/i,/ipo\s*name/i]), qi=idx([/qib/i]), si=idx([/snii/i,/shni/i]), bi=idx([/bnii/i,/bhni/i]), ri=idx([/retail/i,/rii/i,/individual/i]), ei=idx([/employee/i]);
  return rows.filter(r=>r!==header&&ci>=0&&r.length>Math.max(ci,qi,si,bi,ri)).map(r=>({ipo:r[ci],qib:num(r[qi]),snii:num(r[si]),bnii:num(r[bi]),retail:num(r[ri]),employee:ei>=0?num(r[ei]):null,source})).filter(x=>x.ipo&&!/company name/i.test(x.ipo));
 }
+function cellsFromTable(table){
+ return [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(m=>[...m[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x=>clean(x[1])));
+}
+function categoryForHeader(value){
+ const label=String(value||"").toLowerCase().replace(/&gt;/g,">").replace(/&lt;/g,"<");
+ const compact=label.replace(/[^a-z0-9<>]/g,"");
+ if(/qib|qualifiedinstitutional/.test(compact))return "qib";
+ if(/bnii|bhni|bighni|bignii/.test(compact)||/(>|above|morethan).*(10|2).*(l|lakh)/.test(label))return "bnii";
+ if(/snii|shni|smallhni|smallnii/.test(compact)||/(<|below|up\s*to).*(10|2).*(l|lakh)/.test(label))return "snii";
+ if(/nii|hni|noninstitutional/.test(compact))return "nii";
+ if(/retail|rii|individual/.test(compact))return "retail";
+ if(/employee|staff/.test(compact))return "employee";
+ if(/other|shareholder|policyholder/.test(compact))return "other";
+ if(/total/.test(compact))return "total";
+ return null;
+}
+function headerRank(value,index){
+ const label=String(value||"");
+ const day=label.match(/day\s*(\d+)/i);
+ if(day)return Number(day[1])*100000+index;
+ const date=Date.parse(label);
+ return Number.isNaN(date)?index:date;
+}
+function latestValue(row,indices){
+ for(const index of [...indices].sort((a,b)=>b.rank-a.rank)){
+  const value=num(row[index.index]);
+  if(value!=null)return value;
+ }
+ return null;
+}
+function parseIpoWatch(html){
+ const tables=[...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map(m=>cellsFromTable(m[1]));
+ if(!tables.length)tables.push(cellsFromTable(html));
+ const output=[];
+ for(const rows of tables){
+  const headerIndex=rows.findIndex(row=>row.some(x=>/^(ipo|company|company\s*name|ipo\s*name)$/i.test(x.trim()))&&row.some(x=>categoryForHeader(x)==="qib")&&row.some(x=>["nii","snii","bnii","retail"].includes(categoryForHeader(x))));
+  if(headerIndex<0)continue;
+  const header=rows[headerIndex];
+  const indices={};
+  for(let index=0;index<header.length;index++){
+   const category=categoryForHeader(header[index]);
+   if(category)(indices[category]??=[]).push({index,rank:headerRank(header[index],index)});
+  }
+  const companyIndex=header.findIndex(x=>/^(ipo|company|company\s*name|ipo\s*name)$/i.test(x.trim()));
+  const typeIndex=header.findIndex(x=>/^(type|board|ipo\s*type)$/i.test(x.trim()));
+  const dateIndex=header.findIndex(x=>/(closing|close|issue)?\s*date|subscription\s*date/i.test(x)&&!/updated/i.test(x));
+  const dayIndex=header.findIndex(x=>/^(day|subscription\s*day)$/i.test(x));
+  const updatedIndex=header.findIndex(x=>/last\s*updated|updated\s*at|update\s*time/i.test(x));
+  for(const row of rows.slice(headerIndex+1)){
+   if(!row[companyIndex]||row.length<=companyIndex||/^(ipo|company|company\s*name|ipo\s*name)$/i.test(row[companyIndex].trim()))continue;
+   const bnii=latestValue(row,indices.bnii||[]), snii=latestValue(row,indices.snii||[]);
+   const nii=latestValue(row,indices.nii||[])??(bnii!=null&&snii!=null?bnii+snii:null);
+   const date=dateIndex>=0?row[dateIndex]:null;
+   const day=dayIndex>=0?row[dayIndex]:null;
+   output.push({
+    ipo:row[companyIndex],
+    type:typeIndex>=0?row[typeIndex]:null,
+    closingDate:date,
+    day,
+    qib:latestValue(row,indices.qib||[]),
+    nii,
+    snii,
+    bnii,
+    retail:latestValue(row,indices.retail||[]),
+    employee:latestValue(row,indices.employee||[]),
+    other:latestValue(row,indices.other||[]),
+    total:latestValue(row,indices.total||[]),
+    lastUpdated:updatedIndex>=0?row[updatedIndex]:null,
+    source:"IPO Watch"
+   });
+  }
+ }
+ const latestByName=new Map();
+ for(const item of output){
+  const key=norm(item.ipo),previous=latestByName.get(key);
+  const itemDay=Number(String(item.day||"").match(/\d+/)?.[0])||0,previousDay=Number(String(previous?.day||"").match(/\d+/)?.[0])||0;
+  const itemUpdated=Date.parse(item.lastUpdated||"")||Number(String(item.lastUpdated||"").match(/(\d{1,2}):(\d{2})/)?.slice(1).reduce((minutes,value,index)=>minutes+(index===0?Number(value)*60:Number(value)),0))||0;
+  const previousUpdated=Date.parse(previous?.lastUpdated||"")||Number(String(previous?.lastUpdated||"").match(/(\d{1,2}):(\d{2})/)?.slice(1).reduce((minutes,value,index)=>minutes+(index===0?Number(value)*60:Number(value)),0))||0;
+  const itemDate=Date.parse(item.closingDate||"")||0,previousDate=Date.parse(previous?.closingDate||"")||0;
+  if(!previous||itemDay>previousDay||(itemDay===previousDay&&(itemUpdated>previousUpdated||(itemUpdated===previousUpdated&&itemDate>previousDate))))latestByName.set(key,item);
+ }
+ return [...latestByName.values()];
+}
+function parseIpoWatchGmp(html){
+ const tables=[...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map(m=>cellsFromTable(m[1]));
+ const latestByName=new Map();
+ for(const rows of tables){
+  const headerIndex=rows.findIndex(row=>row.some(x=>/^(ipo|ipo\s*name|company|company\s*name)$/i.test(x.trim()))&&row.some(x=>/gmp|grey\s*market\s*premium/i.test(x)));
+  if(headerIndex<0)continue;
+  const header=rows[headerIndex];
+  const nameIndex=header.findIndex(x=>/^(ipo|ipo\s*name|company|company\s*name)$/i.test(x.trim()));
+  const gmpIndex=header.findIndex(x=>/gmp|grey\s*market\s*premium/i.test(x));
+  const priceIndex=header.findIndex(x=>/price\s*band|issue\s*price|^price$/i.test(x));
+  const listingIndex=header.findIndex(x=>/est\.?\s*listing|estimated\s*listing/i.test(x));
+  const dateIndex=header.findIndex(x=>/^date|closing\s*date/i.test(x));
+  const statusIndex=header.findIndex(x=>/^status/i.test(x));
+  for(const row of rows.slice(headerIndex+1)){
+   const ipo=row[nameIndex]?.trim(),gmp=num(row[gmpIndex]);
+   if(!ipo||gmp==null||/^(ipo|ipo\s*name|company|company\s*name)$/i.test(ipo))continue;
+   const listingText=listingIndex>=0?row[listingIndex]:"";
+   const gainMatch=String(listingText).match(/[([]\s*([-−]?)\s*(\d+(?:\.\d+)?)\s*%/);
+   const gain=gainMatch?Number((gainMatch[1]==="−"?"-":"")+gainMatch[2]):null;
+   const key=norm(ipo),item={ipo,gmp,price:priceIndex>=0?num(row[priceIndex]):null,listing:listingIndex>=0?num(listingText):null,gain,gmpDate:dateIndex>=0?row[dateIndex]:null,gmpStatus:statusIndex>=0?row[statusIndex]:null,gmpSource:"IPO Watch GMP"};
+   if(!latestByName.has(key))latestByName.set(key,item);
+  }
+ }
+ return [...latestByName.values()];
+}
 async function fetchPage(url){
  const separator=url.includes("?")?"&":"?";
  const freshUrl=url+separator+"_ts="+Date.now();
@@ -88,6 +197,18 @@ async function fetchPlatform(){
 async function fetchIpojiConsolidated(){
  const html=await fetchPage("https://www.ipoji.com/ipo-subscription-status-live-bidding-data-bse-nse");
  return parseConsolidatedRows(html,"IPO Ji BSE/NSE");
+}
+async function fetchIpoWatch(){
+ const html=await fetchPage("https://ipowatch.in/ipo-subscription-status-today/");
+ const rows=parseIpoWatch(html);
+ if(!rows.length)throw new Error("IPO Watch subscription table not found");
+ return rows;
+}
+async function fetchIpoWatchGmp(){
+ const html=await fetchPage("https://ipowatch.in/ipo-grey-market-premium-latest-ipo-gmp/");
+ const rows=parseIpoWatchGmp(html);
+ if(!rows.length)throw new Error("IPO Watch GMP table not found");
+ return rows;
 }
 
 const verifiedSnapshot={
@@ -129,16 +250,33 @@ export default async()=>{
   const key=norm(x.ipo);
   const existing=dataByName.get(key);
   if(!existing)dataByName.set(key,x);
+  else if(x.gmpSource==="IPO Watch GMP")dataByName.set(key,{...existing,gmp:x.gmp,price:x.price??existing.price,listing:x.listing??existing.listing,gain:x.gain??existing.gain,gmpDate:x.gmpDate,gmpStatus:x.gmpStatus,gmpSource:x.gmpSource});
+  else if(existing.source==="IPO Watch")return;
   else dataByName.set(key,{
    ...existing,
    qib:existing.qib??x.qib,
+   nii:existing.nii??x.nii,
    snii:existing.snii??x.snii,
    bnii:existing.bnii??x.bnii,
    retail:existing.retail??x.retail,
    employee:existing.employee??x.employee,
+   other:existing.other??x.other,
+   total:existing.total??x.total,
    source:existing.source||x.source
   });
  };
+
+ // IPO Watch is the primary source for the latest Mainboard and SME issue table.
+ try{
+  const rows=await fetchIpoWatch();
+  for(const x of rows)add(x);
+ }catch(e){}
+
+ // Refresh GMP values independently from the subscription snapshot.
+ try{
+  const rows=await fetchIpoWatchGmp();
+  for(const x of rows)add(x);
+ }catch(e){}
 
  // Exact IPO Ji pages are useful for issues that need a precise category split.
  for(const name of Object.keys(ipoji)){
@@ -162,6 +300,7 @@ export default async()=>{
  for(const [name,vals] of Object.entries(verifiedSnapshot)){
   const key=norm(name);
   const existing=dataByName.get(key);
+  if(existing?.source==="IPO Watch")continue;
   if(existing){
    dataByName.set(key,{
     ...existing,
@@ -179,7 +318,7 @@ export default async()=>{
  return new Response(JSON.stringify({
   data:[...dataByName.values()],
   updatedAt:new Date().toISOString(),
-  source:"IPO Ji + IPO Platform BSE/NSE live data"
+  source:"IPO Watch subscription + IPO Watch GMP + IPO Ji + IPO Platform BSE/NSE live data"
  }),{
   headers:{
    "content-type":"application/json",
