@@ -266,34 +266,21 @@ export default async()=>{
   });
  };
 
- // IPO Watch is the primary source for the latest Mainboard and SME issue table.
- try{
-  const rows=await fetchIpoWatch();
-  for(const x of rows)add(x);
- }catch(e){}
-
- // Refresh GMP values independently from the subscription snapshot.
- try{
-  const rows=await fetchIpoWatchGmp();
-  for(const x of rows)add(x);
- }catch(e){}
-
- // Exact IPO Ji pages are useful for issues that need a precise category split.
- for(const name of Object.keys(ipoji)){
-  try{add(await fetchIpoji(name,ipoji[name]));}catch(e){}
- }
-
- // IPO Platform exposes a server-readable consolidated BSE/NSE table for both Mainboard and SME.
- // This is the important fallback for ALL current IPOs, not only Moneyview/Roopa Screen.
- try{
-  const rows=await fetchPlatform();
-  for(const x of rows)add(x);
- }catch(e){
-  try{
-   const rows=await fetchIpojiConsolidated();
-   for(const x of rows)add(x);
-  }catch(e2){}
- }
+ // Fetch independent sources together; apply them afterward in priority order.
+ const [subscriptionRows,gmpRows,ipojiRows,platformRows]=await Promise.all([
+  fetchIpoWatch().catch(()=>[]),
+  fetchIpoWatchGmp().catch(()=>[]),
+  Promise.all(Object.entries(ipoji).map(async([name,url])=>{
+   try{return await fetchIpoji(name,url);}catch(e){return null;}
+  })),
+  fetchPlatform().catch(async()=>{
+   try{return await fetchIpojiConsolidated();}catch(e){return [];}
+  })
+ ]);
+ for(const x of subscriptionRows)add(x);
+ for(const x of gmpRows)add(x);
+ for(const x of ipojiRows)if(x)add(x);
+ for(const x of platformRows)add(x);
 
  // Verified Sep 28 BSE/NSE snapshot. This is only a safety net if a source
  // is temporarily blocked; successful live source values remain authoritative.
