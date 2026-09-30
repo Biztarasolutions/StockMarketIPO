@@ -52,7 +52,7 @@ function App(){
    if(today)data=data.filter(x=>x.lastDate===todayLabel);
    return [...data].sort((a,b)=>sort==='lastDate'?dateValue(b.lastDate)-dateValue(a.lastDate):sort==='gmp'?b.gmp-a.gmp:sort==='gain'?b.gain-a.gain:a.ipo.localeCompare(b.ipo));
  },[rows,q,sort,today,type]);
- const refresh=async()=>{try{const r=await fetch('/.netlify/functions/ipo-data?ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();setLiveError(false);if(d.updatedAt)setLiveUpdatedAt(d.updatedAt);if(Array.isArray(d.data)&&d.data.length)setRows(prev=>prev.map(row=>{const key=norm(row.ipo);const matches=d.data.filter(x=>{const lk=norm(x.ipo);return lk===key||lk.includes(key)||key.includes(lk)});const live=matches.find(x=>norm(x.ipo)===key&&x.gmpSource==='IPO Watch GMP')??matches.find(x=>norm(x.ipo)===key)??matches.find(x=>x.gmpSource==='IPO Watch GMP')??matches[0];if(!live)return row;const primary=live.source==='IPO Watch';const category=field=>live[field]??(primary?'—':row[field]);const hasGmp=live.gmpSource==='IPO Watch GMP';const price=hasGmp?(live.price??row.price):row.price;const gmp=hasGmp?(live.gmp??row.gmp):row.gmp;const listing=hasGmp?(live.listing??(Number(price)+Number(gmp))):row.listing;const gain=hasGmp?(live.gain??(Number(price)?Number(gmp)/Number(price)*100:row.gain)):row.gain;return {...row,price,gmp,listing,gain,qib:category('qib'),snii:category('snii'),bnii:category('bnii'),retail:category('retail'),employee:category('employee')}}))}catch(e){setLiveError(true)}};
+ const refresh=async()=>{try{const r=await fetch('/.netlify/functions/ipo-data?ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();setLiveError(false);if(d.updatedAt)setLiveUpdatedAt(d.updatedAt);if(Array.isArray(d.data)&&d.data.length)setRows(prev=>prev.map(row=>{const live=matchLiveIpo(row.ipo,d.data);if(!live)return row;const primary=live.source==='IPO Watch';const category=field=>live[field]??(primary?'—':row[field]);const hasGmp=live.gmpSource==='IPO Watch GMP';const price=hasGmp?(live.price??row.price):row.price;const gmp=hasGmp?(live.gmp??row.gmp):row.gmp;const listing=hasGmp?(live.listing??(Number(price)+Number(gmp))):row.listing;const gain=hasGmp?(live.gain??(Number(price)?Number(gmp)/Number(price)*100:row.gain)):row.gain;return {...row,price,gmp,listing,gain,qib:category('qib'),snii:category('snii'),bnii:category('bnii'),retail:category('retail'),employee:category('employee')}}))}catch(e){setLiveError(true)}};
  const maxG=Math.max(...rows.map(x=>Number(x.gmp)||0));
  return <div className="app"><header><div><div className="brand">Stock Investment Plan</div><div className="sub">Track IPOs. Compare GMP. Understand Subscription. Measure Listing Performance.</div></div><button onClick={refresh}>↻ Refresh Data</button></header>
  <section className="cards"><Card t="Total IPOs" v={rows.length}/><Card t="Mainboard" v={rows.filter(x=>x.type==='Mainboard').length}/><Card t="SME" v={rows.filter(x=>x.type==='SME').length}/><Card t="Highest Expected Gain" v={Math.max(...rows.map(x=>Number(x.gain)||0)).toFixed(2)+'%'}/></section>
@@ -61,7 +61,19 @@ function App(){
  <section className="chart panel"><h2>Gain % by IPO</h2><ResponsiveContainer width="100%" height={340}><BarChart data={filtered}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="ipo" hide/><YAxis/><Tooltip formatter={(v)=>[v+'%','Gain %']}/><Bar dataKey="gain"/></BarChart></ResponsiveContainer></section>
  <footer>GMP is unofficial and may change frequently. Subscription figures are live/intraday. Information is for informational purposes only and is not investment advice.</footer></div>
 }
-function norm(s){return String(s).toLowerCase().replace(/ipo|limited|ltd|india|services|power|industries|private|pvt/g,'').replace(/[^a-z0-9]/g,'')}
+function matchLiveIpo(name,data){
+ const key=norm(name),exact=data.filter(item=>norm(item.ipo)===key);
+ const exactGmp=exact.find(item=>item.gmpSource==='IPO Watch GMP');
+ if(exactGmp||exact.length)return exactGmp||exact[0];
+ const tokens=value=>String(value).toLowerCase().replace(/\b(?:ipo|limited|ltd|private|pvt|industries|services|power)\b/g,' ').split(/[^a-z0-9]+/).filter(token=>token.length>1);
+ const wanted=new Set(tokens(name));
+ const ranked=data.map(item=>{
+  const shared=tokens(item.ipo).filter(token=>wanted.has(token));
+  return {item,shared:shared.length,score:shared.length+(item.gmpSource==='IPO Watch GMP'?0.25:0)};
+ }).filter(candidate=>candidate.shared>=2).sort((a,b)=>b.score-a.score);
+ return ranked[0]?.item;
+}
+function norm(s){return String(s).toLowerCase().replace(/\b(?:ipo|limited|ltd|private|pvt)\b/g,'').replace(/[^a-z0-9]/g,'')}
 function dateValue(v){const m=String(v).match(/(\d{1,2})\s*([A-Za-z]+)/);if(!m)return 0;const months={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};return (months[m[2]]||0)*100+Number(m[1])}
 function Card(p){return <div className="card"><span>{p.t}</span><strong>{p.v}</strong></div>}
 createRoot(document.getElementById('root')).render(<App/>);
